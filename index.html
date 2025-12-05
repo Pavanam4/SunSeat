@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- PWA Settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SunSeat">
+    <meta name="theme-color" content="#4f46e5">
+
+    <title>SunSeat</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#1e293b' }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'spin-slow': 'spin 8s linear infinite',
+                        'swing': 'swing 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(100%)' },
+                            '100%': { transform: 'translateY(0)' },
+                        },
+                        swing: {
+                            '0%, 100%': { transform: 'rotate(-10deg)' },
+                            '50%': { transform: 'rotate(10deg)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRSq550=" crossorigin="" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        #map { z-index: 0; background: #e2e8f0; width: 100%; height: 100%; }
+        
+        /* --- THEMES --- */
+        body.rain-theme {
+            background: linear-gradient(to bottom, #0f172a, #1e293b, #0f172a) !important;
+            color: white; overflow: hidden;
+        }
+        body.rain-theme .bg-white { background-color: rgba(30, 41, 59, 0.95) !important; color: white !important; }
+        body.rain-theme .dark .bg-slate-800 { background-color: rgba(15, 23, 42, 0.95) !important; }
+        body.rain-theme input { background-color: rgba(51, 65, 85, 0.6) !important; color: white !important; border-color: rgba(148, 163, 184, 0.3) !important; }
+        
+        body.flight-theme {
+            background: linear-gradient(-45deg, #38bdf8, #0ea5e9, #0284c7, #38bdf8);
+            background-size: 400% 400%; animation: skyGradient 15s ease infinite; color: white;
+        }
+        body.flight-theme.dark {
+            background: linear-gradient(-45deg, #0f172a, #1e3a8a, #172554, #0f172a);
+            background-size: 400% 400%; animation: skyGradient 15s ease infinite;
+        }
+        body.flight-theme input { color: #0f172a !important; } 
+        body.flight-theme.dark input { color: white !important; }
+
+        @keyframes skyGradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        /* --- VISUALS --- */
+        .rain-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        body.rain-theme .rain-container { display: block; }
+        .rain-layer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.15)); background-size: 2px 40px; animation: rainFall 0.2s linear infinite; }
+        @keyframes rainFall { 0% { background-position: 0 0; } 100% { background-position: 0 40px; } }
+        .screen-drops { position: absolute; width: 100%; height: 100%; z-index: 5; }
+        .drop { position: absolute; background-color: rgba(255, 255, 255, 0.3); border-radius: 50%; width: 3px; height: 15px; top: -20px; animation: drip 3s linear infinite; }
+        .drop:nth-child(1) { left: 10%; animation-duration: 2.5s; } .drop:nth-child(2) { left: 30%; animation-duration: 3s; animation-delay: 1.2s; }
+        .drop:nth-child(3) { left: 60%; animation-duration: 2.2s; animation-delay: 0.5s; } .drop:nth-child(4) { left: 85%; animation-duration: 2.8s; animation-delay: 2s; }
+        @keyframes drip { 0% { transform: translateY(-20px); opacity: 0; } 10% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(100vh); opacity: 0; } }
+
+        .plane-land { display: inline-block; animation: landPlane 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        @keyframes landPlane { 0% { opacity: 0; transform: translate(-150%, -150%) rotate(-45deg) scale(0.5); } 60% { opacity: 1; transform: translate(10%, 10%) rotate(10deg) scale(1.1); } 100% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); } }
+        
+        /* Button Icon Takeoff Animation */
+        .plane-takeoff { display: inline-block; animation: planeTakeOffAnim 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes planeTakeOffAnim { 
+            0% { transform: translate(-5px, 5px) rotate(-45deg) scale(0.8); opacity: 0; }
+            100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+        }
+        
+        .bus-drive { display: inline-block; animation: driveBus 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        @keyframes driveBus { 0% { opacity: 0; transform: translateX(-50px) scale(0.8); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
+        
+        .suggestions-list { position: absolute; top: 100%; left: 0; width: 100%; background: white; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; max-height: 200px; overflow-y: auto; margin-top: 4px; display: none; border: 1px solid #e2e8f0; }
+        body.rain-theme .suggestions-list { background-color: #334155 !important; border-color: #475569 !important; }
+        .dark .suggestions-list { background: #1e293b; border-color: #334155; color: white; }
+        .suggestion-item { padding: 12px 16px; font-size: 0.875rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; color: #1e293b !important; }
+        .dark .suggestion-item { border-bottom-color: #334155; color: white !important; }
+        body.rain-theme .suggestion-item { color: white !important; border-bottom-color: #475569 !important; }
+        .suggestion-item:hover { background-color: #f1f5f9; }
+        .dark .suggestion-item:hover { background-color: #334155; }
+        body.rain-theme .suggestion-item:hover { background-color: #475569 !important; }
+        .suggestion-icon { display: inline-block; width: 20px; text-align: center; margin-right: 8px; opacity: 0.6; }
+
+        /* Menu Drawer */
+        #menuDrawer { transition: transform 0.3s ease-in-out; }
+        .drawer-open { transform: translateX(0) !important; }
+        .drawer-closed { transform: translateX(100%); }
+
+        /* Weather Widget */
+        .weather-widget { display: none; position: absolute; top: 10px; right: 10px; width: 50px; height: 50px; z-index: 20; }
+        .simple-cloud { position: absolute; top: 5px; left: 5px; width: 40px; height: 20px; background: #cbd5e1; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); animation: floatCloud 3s ease-in-out infinite; }
+        .simple-cloud::after, .simple-cloud::before { content: ''; position: absolute; background: inherit; border-radius: 50%; }
+        .simple-cloud::after { width: 15px; height: 15px; top: -8px; left: 5px; }
+        .simple-cloud::before { width: 20px; height: 20px; top: -12px; left: 15px; }
+        .rain-drops { position: absolute; top: 25px; left: 10px; width: 30px; height: 20px; overflow: hidden; }
+        .rain-drop-line { position: absolute; width: 2px; height: 6px; background: #60a5fa; border-radius: 2px; top: -10px; animation: dropFall 0.8s linear infinite; }
+        .rain-drop-line:nth-child(1) { left: 5px; animation-delay: 0s; } .rain-drop-line:nth-child(2) { left: 15px; animation-delay: 0.3s; } .rain-drop-line:nth-child(3) { left: 25px; animation-delay: 0.5s; }
+        @keyframes floatCloud { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        @keyframes dropFall { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(25px); opacity: 0; } }
+        .weather-widget.thunder .simple-cloud { background: #475569; }
+        .weather-widget.thunder .lightning-icon { display: block; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fbbf24; font-size: 14px; animation: flashBolt 2s infinite; z-index: 10; }
+        @keyframes flashBolt { 0%, 90%, 100% { opacity: 0; } 92%, 96% { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-slate-900 transition-colors duration-500 min-h-screen flex flex-col items-center py-2 px-3 relative overflow-hidden" onclick="closeAllLists(event)">
+
+    <div class="rain-container">
+        <div class="rain-layer"></div>
+        <div class="screen-drops"><div class="drop"></div><div class="drop"></div><div class="drop"></div><div class="drop"></div></div>
+    </div>
+
+    <!-- --- PRIVACY POLICY MODAL --- -->
+    <div id="privacyModal" class="fixed inset-0 bg-white dark:bg-slate-900 z-[100] hidden overflow-y-auto p-6 animate-fade-in">
+        <button onclick="togglePrivacy()" class="absolute top-4 right-4 text-gray-500 hover:text-red-500"><i class="fas fa-times text-2xl"></i></button>
+        <div class="max-w-2xl mx-auto mt-10 prose dark:prose-invert">
+            <h1 class="text-2xl font-bold mb-4">Privacy Policy</h1>
+            <p class="text-sm text-gray-500 mb-4">Effective Date: December 06, 2025</p>
+            
+            <h3 class="font-bold mt-4">1. Overview</h3>
+            <p>SunSeat ("we", "our", or "us") is a travel utility application designed to help users determine the optimal seating position in vehicles based on the sun's position.</p>
+
+            <h3 class="font-bold mt-4">2. Information We Collect</h3>
+            <ul class="list-disc pl-5">
+                <li><strong>Location Data (GPS):</strong> We access your device's precise location <strong>only</strong> when you tap the "Current Location" target button. This data is used solely to auto-fill the "From" field in the route planner.</li>
+                <li><strong>No Server Storage:</strong> Your location data is processed locally on your device or sent ephemerally to the OpenStreetMap API for geocoding. We <strong>do not</strong> store, track, or share your location history on our servers.</li>
+            </ul>
+
+            <h3 class="font-bold mt-4">3. How We Use Your Data</h3>
+            <ul class="list-disc pl-5">
+                <li>To calculate the sun's azimuth and altitude relative to your specific route.</li>
+                <li>To provide real-time weather updates (Rain/Thunder detection) at your starting point via the Open-Meteo API.</li>
+            </ul>
+
+            <h3 class="font-bold mt-4">4. Contact Us</h3>
+            <p>If you have questions, contact us at: <a href="mailto:support@solarseat.app" class="text-blue-500">support@solarseat.app</a></p>
+            
+            <button onclick="togglePrivacy()" class="mt-8 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Close Policy</button>
+        </div>
+    </div>
+
+    <!-- --- SLIDE-IN MENU DRAWER --- -->
+    <div id="menuBackdrop" onclick="toggleMenu()" class="fixed inset-0 bg-black/50 z-40 hidden transition-opacity opacity-0"></div>
+    <div id="menuDrawer" class="fixed top-0 right-0 h-full w-64 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl z-50 drawer-closed flex flex-col p-6 border-l border-white/20">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-xl font-bold text-slate-800 dark:text-white">Menu</h2>
+            <button onclick="toggleMenu()" class="text-gray-500 hover:text-red-500 transition"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        
+        <div class="space-y-2">
+            <button onclick="triggerInstall()" class="w-full text-left px-4 py-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold transition flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-300"><i class="fas fa-download"></i></div>
+                Install App
+            </button>
+
+            <button onclick="alert('Help Guide: \n1. Enter Start & End locations.\n2. Pick a time.\n3. Click Find Route to see sun position.')" class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-700 dark:text-gray-200 font-medium transition flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400"><i class="fas fa-question"></i></div>
+                Help
+            </button>
+            
+            <a href="mailto:support@solarseat.app" class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-700 dark:text-gray-200 font-medium transition flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fas fa-headset"></i></div>
+                Support
+            </a>
+            
+            <button onclick="togglePrivacy()" class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-700 dark:text-gray-200 font-medium transition flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center text-green-600 dark:text-green-400"><i class="fas fa-shield-alt"></i></div>
+                Privacy Policy
+            </button>
+
+            <button onclick="alert('SunSeat v2.1 \nMade for travelers 🚌✈️\n\nDon\'t get baked by the sun!')" class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-700 dark:text-gray-200 font-medium transition flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center text-orange-600 dark:text-orange-400"><i class="fas fa-info"></i></div>
+                About App
+            </button>
+        </div>
+
+        <div class="mt-auto pt-6 border-t border-gray-200 dark:border-slate-700 text-center">
+            <p class="text-xs text-gray-400">© 2025 SunSeat</p>
+        </div>
+    </div>
+
+    <!-- SHARED VIEW CONTAINER -->
+    <div id="sharedViewContainer" class="hidden w-full max-w-md z-30 animate-slide-up">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden p-6 text-center relative">
+            <div class="absolute top-0 left-0 w-full h-2 bg-indigo-500"></div>
+            <p class="text-xs font-bold text-gray-400 tracking-widest uppercase mb-2">Trip Recommendation</p>
+            <h1 class="text-4xl font-black text-slate-800 dark:text-white mb-2" id="sharedVerdict">SIT LEFT</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6" id="sharedSub">Best side for shade</p>
+            <div class="bg-gray-50 dark:bg-slate-700/50 rounded-2xl p-4 mb-6 border border-gray-100 dark:border-slate-700">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold text-gray-400 uppercase">From</span>
+                    <span class="text-sm font-bold text-slate-700 dark:text-slate-200" id="sharedFrom">---</span>
+                </div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold text-gray-400 uppercase">To</span>
+                    <span class="text-sm font-bold text-slate-700 dark:text-slate-200" id="sharedTo">---</span>
+                </div>
+                <div class="h-px bg-gray-200 dark:bg-slate-600 my-3"></div>
+                <div class="flex justify-around">
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-indigo-600 dark:text-indigo-400" id="sharedDist">0 km</div>
+                        <div class="text-[10px] text-gray-400 uppercase">Distance</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-indigo-600 dark:text-indigo-400" id="sharedDur">0h</div>
+                        <div class="text-[10px] text-gray-400 uppercase">Duration</div>
+                    </div>
+                </div>
+            </div>
+            <button onclick="location.reload()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition shadow-lg shadow-indigo-200/50 dark:shadow-none">
+                <i class="fas fa-search mr-2"></i> Plan My Own Trip
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div id="mainAppContainer" class="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-visible mb-4 transition-colors duration-300 z-10">
+        
+        <!-- Header -->
+        <div class="bg-indigo-600 dark:bg-indigo-900 text-white p-5 pb-8 relative rounded-b-3xl z-10 shadow-md transition-all duration-500" id="headerBg">
+            <div class="flex justify-between items-center mb-1">
+                <div>
+                    <h1 class="text-xl font-bold tracking-wider flex items-center gap-2">
+                        <!-- Dynamic Header Icon (Sun/Moon) -->
+                        <div id="headerIconContainer" class="w-8 h-8 flex items-center justify-center">
+                            <svg class="w-7 h-7 text-yellow-300 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        </div>
+                        <span id="appTitle">SunSeat</span>
+                    </h1>
+                    <div id="weatherBadge" class="hidden text-[10px] bg-white/20 px-2 py-0.5 rounded-full mt-1 w-max flex items-center gap-1 animate-pulse">
+                        <i class="fas fa-cloud-rain"></i> <span>Raining at start</span>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button onclick="toggleFlightMode()" id="flightToggleBtn" class="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex justify-center items-center transition active:scale-95 shadow-inner border border-white/10" title="Switch to Flight Mode">
+                        <i class="fas fa-plane text-white text-sm transform -rotate-45" id="flightBtnIcon"></i>
+                    </button>
+                    <button onclick="toggleTheme()" class="w-9 h-9 bg-white/20 rounded-full hover:bg-white/30 transition backdrop-blur-sm flex justify-center items-center active:scale-95 shadow-inner border border-white/10">
+                        <i id="themeIcon" class="fas fa-moon text-yellow-300 text-xs"></i>
+                    </button>
+                    <!-- Menu Dots Button -->
+                    <button onclick="toggleMenu()" class="w-9 h-9 bg-white/20 rounded-full hover:bg-white/30 transition backdrop-blur-sm flex justify-center items-center active:scale-95 shadow-inner border border-white/10">
+                        <i class="fas fa-ellipsis-v text-white text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            <p class="text-xs text-indigo-100 opacity-80 mt-1" id="modeSubtitle">Smart Road Route Shade Finder</p>
+        </div>
+
+        <!-- Inputs -->
+        <div class="p-5 space-y-3 -mt-4 bg-white dark:bg-slate-800 rounded-t-3xl z-20 relative">
+            <div class="relative group">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fas fa-circle text-green-500 text-xs"></i>
+                </div>
+                <input type="text" id="fromInput" class="block w-full pl-9 pr-10 py-3 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm font-medium" placeholder="From (City)" autocomplete="off">
+                <div id="fromSuggestions" class="suggestions-list"></div>
+                <div onclick="getCurrentLocation()" class="absolute inset-y-0 right-0 pr-0 w-12 flex justify-center items-center cursor-pointer text-gray-400 hover:text-indigo-500 active:scale-90 transition border-l border-gray-200 dark:border-slate-600 h-full my-auto" title="Use Current Location">
+                    <i class="fas fa-crosshairs"></i>
+                </div>
+            </div>
+
+            <div class="relative group">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fas fa-map-pin text-red-500 text-sm"></i>
+                </div>
+                <input type="text" id="toInput" class="block w-full pl-9 pr-3 py-3 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm font-medium" placeholder="To (City)" autocomplete="off">
+                <div id="toSuggestions" class="suggestions-list"></div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3" id="timeContainer">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-clock text-gray-400 text-sm"></i>
+                    </div>
+                    <label for="timeInput" id="timeLabel" class="hidden text-[10px] text-gray-500 dark:text-gray-400 absolute top-1 left-9">Departure Time</label>
+                    <input type="datetime-local" id="timeInput" onchange="updateHeaderTimeIcon()" class="block w-full pl-9 pr-3 py-3 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-600 dark:text-gray-300 text-sm font-medium">
+                </div>
+                <div id="delayInputContainer" class="relative hidden animate-fade-in">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-hourglass-half text-orange-400 text-sm"></i>
+                    </div>
+                    <input type="number" id="delayInput" min="0" class="block w-full pl-9 pr-3 py-3 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none transition text-sm font-medium" placeholder="Delay (minutes)">
+                </div>
+            </div>
+
+            <button onclick="calculateShade()" id="calcBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition transform active:scale-[0.98] flex justify-center items-center gap-2">
+                <span id="btnText">Find Road Route</span>
+                <i id="btnIcon" class="fas fa-car-side"></i>
+            </button>
+            <div id="errorMsg" class="hidden text-red-500 text-xs text-center font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/50 mt-2"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultSection" class="hidden border-t border-gray-100 dark:border-slate-700 animate-fade-in">
+            <div class="bg-gradient-to-b from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 p-6 flex flex-col items-center relative overflow-hidden">
+                
+                <!-- Share Button -->
+                <button onclick="shareTrip()" class="absolute top-4 right-4 text-indigo-500 hover:text-indigo-700 dark:text-indigo-300 transition bg-white/50 dark:bg-black/20 p-2 rounded-full backdrop-blur-sm z-20">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+
+                <!-- WEATHER WIDGET -->
+                <div id="weatherWidget" class="weather-widget">
+                    <div class="simple-cloud">
+                        <i class="fas fa-bolt lightning-icon hidden"></i>
+                    </div>
+                    <div class="rain-drops">
+                        <div class="rain-drop-line"></div>
+                        <div class="rain-drop-line"></div>
+                        <div class="rain-drop-line"></div>
+                    </div>
+                </div>
+
+                <div class="relative w-64 h-32">
+                    <svg viewBox="0 0 300 180" class="w-full h-full drop-shadow-xl" id="vehicleSvg">
+                        <g id="visSunLeft" class="sun-rays opacity-0">
+                            <circle cx="30" cy="50" r="12" fill="#FDB813" class="animate-pulse-slow" />
+                            <path d="M40 50 L100 40 L100 120 Z" fill="url(#gradLeft)" opacity="0.5" />
+                        </g>
+                        <g id="visSunRight" class="sun-rays opacity-0">
+                            <circle cx="270" cy="50" r="12" fill="#FDB813" class="animate-pulse-slow" />
+                            <path d="M260 50 L200 40 L200 120 Z" fill="url(#gradRight)" opacity="0.5" />
+                        </g>
+                        <g id="busGroup">
+                            <rect x="100" y="40" width="100" height="110" rx="15" fill="#e2e8f0" stroke="#475569" stroke-width="2" />
+                            <path d="M100 40 Q150 25 200 40" stroke="#475569" stroke-width="2" fill="none" />
+                            <rect id="seatsLeftBus" x="110" y="50" width="80" height="35" rx="4" fill="#cbd5e1" class="heat-zone" />
+                            <text x="135" y="72" font-size="10" fill="#64748b" font-weight="bold">LEFT</text>
+                            <line x1="110" y1="95" x2="190" y2="95" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4" />
+                            <rect id="seatsRightBus" x="110" y="105" width="80" height="35" rx="4" fill="#cbd5e1" class="heat-zone" />
+                            <text x="132" y="127" font-size="10" fill="#64748b" font-weight="bold">RIGHT</text>
+                        </g>
+                        <g id="planeGroup" class="hidden">
+                            <path d="M60 90 L100 80 L100 110 L60 100 Z" fill="#cbd5e1" stroke="#475569" stroke-width="1"/>
+                            <path d="M240 90 L200 80 L200 110 L240 100 Z" fill="#cbd5e1" stroke="#475569" stroke-width="1"/>
+                            <circle cx="150" cy="95" r="50" fill="#e2e8f0" stroke="#475569" stroke-width="2" />
+                            <circle cx="110" cy="95" r="4" fill="#93c5fd" />
+                            <circle cx="190" cy="95" r="4" fill="#93c5fd" />
+                            <path id="seatsLeftPlane" d="M115 95 A 35 35 0 0 1 145 65 L 145 125 A 35 35 0 0 1 115 95" fill="#cbd5e1" class="heat-zone" />
+                            <text x="122" y="100" font-size="8" fill="#64748b" font-weight="bold">A-C</text>
+                            <path id="seatsRightPlane" d="M185 95 A 35 35 0 0 0 155 65 L 155 125 A 35 35 0 0 0 185 95" fill="#cbd5e1" class="heat-zone" />
+                            <text x="160" y="100" font-size="8" fill="#64748b" font-weight="bold">D-F</text>
+                        </g>
+                        <defs>
+                            <linearGradient id="gradLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#FDB813;stop-opacity:0.8" />
+                                <stop offset="100%" style="stop-color:#FDB813;stop-opacity:0" />
+                            </linearGradient>
+                            <linearGradient id="gradRight" x1="100%" y1="0%" x2="0%" y2="0%">
+                                <stop offset="0%" style="stop-color:#FDB813;stop-opacity:0.8" />
+                                <stop offset="100%" style="stop-color:#FDB813;stop-opacity:0" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/90 dark:bg-slate-800/90 backdrop-blur px-5 py-3 rounded-2xl shadow-xl border border-white/20 text-center whitespace-nowrap">
+                        <div class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Recommended</div>
+                        <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400" id="visualVerdictText">---</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="px-6 py-4 grid grid-cols-2 gap-3 bg-white dark:bg-slate-800">
+                <div class="bg-gray-50 dark:bg-slate-700 p-3 rounded-xl text-center">
+                    <div class="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">Distance</div>
+                    <div class="text-base font-bold text-slate-800 dark:text-white" id="statDistance">0 km</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-slate-700 p-3 rounded-xl text-center">
+                    <div class="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">Duration</div>
+                    <div class="text-base font-bold text-slate-800 dark:text-white" id="statDuration">0h 0m</div>
+                </div>
+            </div>
+
+            <div class="px-6 py-5 bg-white dark:bg-slate-800 space-y-4">
+                <div>
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="font-bold text-gray-600 dark:text-gray-300">Left Side Heat</span>
+                        <span class="text-gray-500 dark:text-gray-400" id="leftTimeText">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-100 dark:bg-slate-600 rounded-full h-2.5 overflow-hidden">
+                        <div id="leftBar" class="bg-gradient-to-r from-orange-400 to-red-500 h-full rounded-full transition-all duration-1000 w-0"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="font-bold text-gray-600 dark:text-gray-300">Right Side Heat</span>
+                        <span class="text-gray-500 dark:text-gray-400" id="rightTimeText">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-100 dark:bg-slate-600 rounded-full h-2.5 overflow-hidden">
+                        <div id="rightBar" class="bg-gradient-to-r from-orange-400 to-red-500 h-full rounded-full transition-all duration-1000 w-0"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h-64 w-full relative group rounded-xl overflow-hidden shadow-inner">
+                <div id="map"></div>
+                <button onclick="toggleMapLock()" id="mapLockBtn" class="absolute bottom-4 right-4 z-[400] bg-white dark:bg-slate-700 text-gray-700 dark:text-white px-3 py-2 rounded-lg shadow-lg text-xs font-bold flex items-center gap-2 hover:bg-gray-50 transition border border-gray-100 dark:border-slate-600">
+                    <i class="fas fa-hand-pointer"></i> <span>Interact</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="loader" class="hidden absolute inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm flex flex-col justify-center items-center z-50">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-10 w-10 mb-4"></div>
+            <h2 id="loaderText" class="text-center text-slate-800 dark:text-white text-lg font-bold">Calculating...</h2>
+        </div>
+
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- SunCalc Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+
+    <script>
+        let mode = 'bus'; 
+        let mapLocked = true;
+        let currentRouteLayer = null;
+        let userLocationCoords = null; 
+        let currentWeatherType = 'clear'; 
+        let shareData = { verdict: "", dist: "", dur: "", from: "", to: "" };
+        let deferredPrompt; // For PWA install
+
+        // Icons
+        const SUN_ICON = `<svg class="w-7 h-7 text-yellow-300 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>`;
+        const MOON_ICON = `<svg class="w-6 h-6 text-indigo-200 animate-swing" fill="currentColor" viewBox="0 0 24 24"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>`;
+
+        // Init & PWA Manifest Injection
+        window.onload = function() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('timeInput').value = now.toISOString().slice(0, 16);
+            updateHeaderTimeIcon(); 
+
+            // Check Shared Link
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('share')) {
+                document.getElementById('mainAppContainer').classList.add('hidden');
+                document.getElementById('sharedViewContainer').classList.remove('hidden');
+                document.getElementById('sharedVerdict').innerText = params.get('verdict') || "SIT ANYWHERE";
+                document.getElementById('sharedFrom').innerText = params.get('from') || "?";
+                document.getElementById('sharedTo').innerText = params.get('to') || "?";
+                document.getElementById('sharedDist').innerText = params.get('dist') || "-";
+                document.getElementById('sharedDur').innerText = params.get('dur') || "-";
+            }
+
+            // Inject Dynamic Manifest
+            const manifest = {
+                "name": "SunSeat",
+                "short_name": "SunSeat",
+                "start_url": "index.html",
+                "display": "standalone",
+                "background_color": "#4f46e5",
+                "theme_color": "#4f46e5",
+                "icons": [{
+                    "src": "https://cdn-icons-png.flaticon.com/512/1048/1048953.png",
+                    "sizes": "512x512",
+                    "type": "image/png"
+                }]
+            };
+            const stringManifest = JSON.stringify(manifest);
+            const blob = new Blob([stringManifest], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(blob);
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestURL;
+            document.head.appendChild(link);
+        };
+
+        // Capture Install Event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+
+        async function triggerInstall() {
+            toggleMenu(); // Close menu
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+            } else {
+                // Show instructions if install prompt isn't available (e.g. iOS)
+                alert("To install SunSeat:\n\n1. Tap the 'Share' button in your browser.\n2. Scroll down and select 'Add to Home Screen'.");
+            }
+        }
+
+        // --- MENU LOGIC ---
+        function toggleMenu() {
+            const drawer = document.getElementById('menuDrawer');
+            const backdrop = document.getElementById('menuBackdrop');
+            if (drawer.classList.contains('drawer-closed')) {
+                drawer.classList.remove('drawer-closed'); drawer.classList.add('drawer-open');
+                backdrop.classList.remove('hidden');
+                setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+            } else {
+                drawer.classList.remove('drawer-open'); drawer.classList.add('drawer-closed');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+        }
+        
+        function togglePrivacy() {
+            const modal = document.getElementById('privacyModal');
+            if (modal.classList.contains('hidden')) {
+                toggleMenu(); // Close main menu
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // --- DYNAMIC HEADER ICON LOGIC ---
+        function updateHeaderTimeIcon() {
+            const timeStr = document.getElementById('timeInput').value;
+            if (!timeStr) return;
+            const date = new Date(timeStr);
+            const lat = userLocationCoords ? userLocationCoords.lat : 20.0;
+            const lon = userLocationCoords ? userLocationCoords.lon : 77.0;
+            const sunTimes = SunCalc.getTimes(date, lat, lon);
+            const container = document.getElementById('headerIconContainer');
+
+            if (date > sunTimes.sunrise && date < sunTimes.sunset) { container.innerHTML = SUN_ICON; } 
+            else { container.innerHTML = MOON_ICON; }
+        }
+
+        async function shareTrip() {
+            const url = new URL(window.location.href);
+            url.searchParams.set('share', 'true');
+            url.searchParams.set('verdict', shareData.verdict);
+            url.searchParams.set('dist', shareData.dist);
+            url.searchParams.set('dur', shareData.dur);
+            url.searchParams.set('from', shareData.from);
+            url.searchParams.set('to', shareData.to);
+            const shareUrl = url.toString();
+            const shareText = `Tip for our trip from ${shareData.from} to ${shareData.to}: ${shareData.verdict}! (${shareData.dist})`;
+            if (navigator.share) {
+                try { await navigator.share({ title: 'SunSeat Trip Tip', text: shareText, url: shareUrl }); } catch (err) { console.log('Error sharing:', err); }
+            } else {
+                navigator.clipboard.writeText(`${shareText} \nLink: ${shareUrl}`).then(() => { alert("Link copied to clipboard!"); });
+            }
+        }
+
+        function setupAutocomplete(inputId, resultsId) {
+            const input = document.getElementById(inputId);
+            const results = document.getElementById(resultsId);
+            let timeout = null;
+            input.addEventListener('input', function() {
+                if(inputId === 'fromInput') userLocationCoords = null;
+                const query = this.value.trim();
+                clearTimeout(timeout);
+                timeout = setTimeout(async () => {
+                    if (query.length < 3) { results.style.display = 'none'; return; }
+                    try {
+                        const limit = mode === 'flight' ? 15 : 5;
+                        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=${limit}`);
+                        let data = await res.json();
+                        if (mode === 'flight') {
+                            data = data.filter(item => {
+                                const t = item.type; const c = item.class; const a = item.addresstype;
+                                const name = item.display_name.toLowerCase();
+                                return (c === 'aeroway' || t === 'aerodrome') || (a === 'country' || t === 'country') || name.includes('airport');
+                            });
+                        }
+                        data = data.slice(0, 5);
+                        results.innerHTML = '';
+                        if (data.length > 0) {
+                            results.style.display = 'block';
+                            data.forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'suggestion-item';
+                                let icon = '<i class="fas fa-map-marker-alt suggestion-icon"></i>';
+                                if (item.class === 'aeroway' || item.type === 'aerodrome' || item.display_name.toLowerCase().includes('airport')) icon = '<i class="fas fa-plane suggestion-icon"></i>';
+                                else if (item.addresstype === 'country') icon = '<i class="fas fa-globe suggestion-icon"></i>';
+                                div.innerHTML = icon + item.display_name; 
+                                div.onclick = () => {
+                                    const parts = item.display_name.split(',');
+                                    input.value = parts[0] + (parts.length > 1 ? ", " + parts[parts.length-1].trim() : ""); 
+                                    results.style.display = 'none';
+                                };
+                                results.appendChild(div);
+                            });
+                        } else { results.style.display = 'none'; }
+                    } catch (e) { console.error(e); }
+                }, 400); 
+            });
+        }
+        setupAutocomplete('fromInput', 'fromSuggestions');
+        setupAutocomplete('toInput', 'toSuggestions');
+
+        function closeAllLists(e) { if (!e.target.matches('input')) { document.getElementById('fromSuggestions').style.display = 'none'; document.getElementById('toSuggestions').style.display = 'none'; } }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('themeIcon');
+            html.classList.toggle('dark');
+            if (!document.body.classList.contains('rain-theme') && !document.body.classList.contains('flight-theme')) {
+                icon.className = html.classList.contains('dark') ? 'fas fa-sun text-orange-400 text-xs' : 'fas fa-moon text-yellow-300 text-xs';
+            }
+        }
+        
+        function setRainTheme(isRaining) {
+            if (mode === 'flight') return;
+            const body = document.body;
+            const headerBg = document.getElementById('headerBg');
+            const themeIcon = document.getElementById('themeIcon');
+            const badge = document.getElementById('weatherBadge');
+            if (isRaining) {
+                body.classList.add('rain-theme');
+                headerBg.classList.replace('bg-indigo-600', 'bg-slate-800');
+                headerBg.classList.replace('dark:bg-indigo-900', 'dark:bg-slate-950');
+                themeIcon.className = 'fas fa-cloud-rain text-blue-300 text-xs';
+                badge.classList.remove('hidden');
+            } else {
+                body.classList.remove('rain-theme');
+                headerBg.classList.replace('bg-slate-800', 'bg-indigo-600');
+                headerBg.classList.replace('dark:bg-slate-950', 'dark:bg-indigo-900');
+                const isDark = document.documentElement.classList.contains('dark');
+                themeIcon.className = isDark ? 'fas fa-sun text-orange-400 text-xs' : 'fas fa-moon text-yellow-300 text-xs';
+                badge.classList.add('hidden');
+            }
+        }
+
+        function toggleFlightMode() { setMode(mode === 'bus' ? 'flight' : 'bus'); }
+
+        function setMode(newMode) {
+            if (mode === newMode) return;
+            mode = newMode;
+            document.getElementById('resultSection').classList.add('hidden');
+            hideError();
+            if (currentRouteLayer) map.removeLayer(currentRouteLayer);
+            
+            const body = document.body;
+            const headerBg = document.getElementById('headerBg');
+            const headerIcon = document.getElementById('headerIcon');
+            const appTitle = document.getElementById('appTitle');
+            const subTitle = document.getElementById('modeSubtitle');
+            const btnText = document.getElementById('btnText');
+            const btnIcon = document.getElementById('btnIcon');
+            const fromInput = document.getElementById('fromInput');
+            const toInput = document.getElementById('toInput');
+            const flightToggleBtn = document.getElementById('flightToggleBtn');
+            const flightBtnIcon = document.getElementById('flightBtnIcon');
+            const busGroup = document.getElementById('busGroup');
+            const planeGroup = document.getElementById('planeGroup');
+            const delayContainer = document.getElementById('delayInputContainer');
+            const timeLabel = document.getElementById('timeLabel');
+            const timeInput = document.getElementById('timeInput');
+
+            if (mode === 'bus') {
+                body.classList.remove('flight-theme');
+                headerBg.classList.remove('bg-sky-600', 'dark:bg-sky-900');
+                headerBg.classList.add('bg-indigo-600', 'dark:bg-indigo-900');
+                
+                appTitle.innerText = "SunSeat";
+                subTitle.innerText = "Smart Road Route Shade Finder";
+                btnText.innerText = "Find Road Route";
+                btnIcon.className = "fas fa-car-side";
+                fromInput.placeholder = "From (City)";
+                toInput.placeholder = "To (City)";
+                busGroup.classList.remove('hidden');
+                planeGroup.classList.add('hidden');
+                delayContainer.classList.add('hidden');
+                timeLabel.classList.add('hidden');
+                timeInput.classList.remove('pt-5'); 
+                flightToggleBtn.classList.replace('bg-white', 'bg-white/20');
+                flightBtnIcon.classList.replace('text-sky-600', 'text-white');
+                flightBtnIcon.classList.remove('rotate-0');
+                flightBtnIcon.classList.add('-rotate-45');
+            } else {
+                body.classList.remove('rain-theme');
+                body.classList.add('flight-theme');
+                headerBg.classList.remove('bg-indigo-600', 'dark:bg-indigo-900', 'bg-slate-800');
+                headerBg.classList.add('bg-sky-600', 'dark:bg-sky-900');
+                
+                appTitle.innerText = "SunFlight";
+                subTitle.innerText = "Air Travel Sun Position";
+                btnText.innerText = "Find Flight Path";
+                btnIcon.className = "fas fa-plane plane-takeoff";
+                fromInput.placeholder = "From (Airport)";
+                toInput.placeholder = "To (Airport)";
+                busGroup.classList.add('hidden');
+                planeGroup.classList.remove('hidden');
+                delayContainer.classList.remove('hidden');
+                timeLabel.classList.remove('hidden');
+                timeLabel.innerText = "Ticket Date & Time";
+                timeInput.classList.add('pt-5');
+                flightToggleBtn.classList.replace('bg-white/20', 'bg-white');
+                flightBtnIcon.classList.replace('text-white', 'text-sky-600');
+                flightBtnIcon.classList.remove('-rotate-45');
+                flightBtnIcon.classList.add('rotate-0');
+            }
+        }
+
+        function getCurrentLocation() {
+            if (!navigator.geolocation) { showError("GPS not supported."); return; }
+            showLoader(true, "Locating...");
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                userLocationCoords = { lat, lon };
+                
+                updateHeaderTimeIcon(); 
+
+                try {
+                    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    const city = data.address.city || data.address.town || data.address.village || "Current Location";
+                    document.getElementById('fromInput').value = `📍 ${city}`;
+                    hideError();
+                } catch (e) { document.getElementById('fromInput').value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`; }
+                showLoader(false);
+            }, (error) => { showLoader(false); showError("Please enable GPS permission."); });
+        }
+
+        async function checkWeather(lat, lon) {
+            if (mode === 'flight') return;
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+                const res = await fetch(url);
+                const data = await res.json();
+                currentWeatherType = 'clear';
+                if (data.current_weather) {
+                    const code = data.current_weather.weathercode;
+                    const rainCodes = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99];
+                    if (rainCodes.includes(code)) {
+                        setRainTheme(true);
+                        if ([95, 96, 99].includes(code)) currentWeatherType = 'thunder';
+                        else if ([65, 67, 82].includes(code)) currentWeatherType = 'heavy_rain';
+                        else currentWeatherType = 'rain';
+                    } else { setRainTheme(false); }
+                }
+            } catch (e) { setRainTheme(false); currentWeatherType = 'clear'; }
+        }
+
+        const map = L.map('map', { dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, zoomControl: false }).setView([20, 0], 2); 
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM' }).addTo(map);
+
+        function toggleMapLock() {
+            mapLocked = !mapLocked;
+            const btn = document.getElementById('mapLockBtn');
+            if (mapLocked) {
+                map.dragging.disable(); map.touchZoom.disable(); map.scrollWheelZoom.disable();
+                btn.innerHTML = '<i class="fas fa-hand-pointer"></i> <span>Interact</span>'; btn.classList.remove('text-indigo-600');
+            } else {
+                map.dragging.enable(); map.touchZoom.enable(); map.scrollWheelZoom.enable();
+                btn.innerHTML = '<i class="fas fa-lock-open"></i> <span>Unlocked</span>'; btn.classList.add('text-indigo-600');
+            }
+        }
+
+        async function calculateShade() {
+            const fromVal = document.getElementById('fromInput').value;
+            const to = document.getElementById('toInput').value;
+            const timeStr = document.getElementById('timeInput').value;
+            const delayVal = document.getElementById('delayInput').value;
+            let date = new Date(timeStr);
+            if (mode === 'flight' && delayVal) date.setMinutes(date.getMinutes() + parseInt(delayVal));
+
+            if (!fromVal || !to) { showError("Enter locations"); return; }
+            showLoader(true, "Calculating..."); hideError();
+            const results = document.getElementById('resultSection');
+            results.classList.remove('hidden');
+
+            try {
+                let startCoords;
+                if (userLocationCoords && fromVal.includes("📍")) startCoords = userLocationCoords;
+                else startCoords = await geocode(fromVal);
+                const endCoords = await geocode(to);
+
+                if (!startCoords) throw new Error(`Could not find location: "${fromVal}"`);
+                if (!endCoords) throw new Error(`Could not find location: "${to}"`);
+
+                if(mode !== 'flight') await checkWeather(startCoords.lat, startCoords.lon);
+
+                let routeData;
+                if (mode === 'bus') {
+                    routeData = await getRoadRoute(startCoords, endCoords);
+                    if (!routeData) throw new Error("No road route. Try Flight Mode?");
+                } else {
+                    routeData = getFlightRoute(startCoords, endCoords);
+                }
+
+                if (!routeData) throw new Error("Route failed");
+                analyzeSunPosition(routeData, date);
+                
+                updateHeaderTimeIcon();
+
+            } catch (err) { results.classList.add('hidden'); showError(err.message); } finally { showLoader(false); }
+        }
+
+        async function geocode(query) {
+            try {
+                if (query.match(/^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/)) { const [lat, lon] = query.split(',').map(parseFloat); return { lat, lon }; }
+                const cleanQuery = query.replace("📍 ", "");
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQuery)}&limit=1`;
+                const r = await fetch(url);
+                const d = await r.json();
+                if (mode === 'flight' && d.length > 0) {
+                     const bestMatch = d.find(item => item.class === 'aeroway' || item.type === 'aerodrome' || item.addresstype === 'country') || d[0];
+                     return { lat: parseFloat(bestMatch.lat), lon: parseFloat(bestMatch.lon) };
+                }
+                return d[0] ? { lat: parseFloat(d[0].lat), lon: parseFloat(d[0].lon) } : null;
+            } catch { return null; }
+        }
+
+        async function getRoadRoute(start, end) {
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=full&geometries=geojson`;
+                const r = await fetch(url);
+                const d = await r.json();
+                if (d.code !== 'Ok') return null;
+                return { coordinates: d.routes[0].geometry.coordinates, distance: d.routes[0].distance, duration: d.routes[0].duration };
+            } catch { return null; }
+        }
+
+        function getFlightRoute(start, end) {
+            const coords = []; const steps = 50; 
+            for (let i = 0; i <= steps; i++) {
+                const f = i / steps; const lat = start.lat + (end.lat - start.lat) * f; const lon = start.lon + (end.lon - start.lon) * f;
+                coords.push([lon, lat]);
+            }
+            const dist = getDistance(start.lat, start.lon, end.lat, end.lon);
+            const duration = (dist / 222) + 1800; 
+            return { coordinates: coords, distance: dist, duration: duration };
+        }
+
+        function analyzeSunPosition(routeData, date) {
+            const coordinates = routeData.coordinates;
+            let sunOnRightDist = 0; let sunOnLeftDist = 0; let totalCalcDist = 0;
+            const polylinePoints = [];
+            const timePerSegment = (routeData.duration * 1000) / (coordinates.length - 1);
+            let currentTime = date.getTime();
+
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                const p1 = { lon: coordinates[i][0], lat: coordinates[i][1] };
+                const p2 = { lon: coordinates[i+1][0], lat: coordinates[i+1][1] };
+                const bearing = getBearing(p1.lat, p1.lon, p2.lat, p2.lon);
+                const dist = getDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+                const sunPos = SunCalc.getPosition(new Date(currentTime), p1.lat, p1.lon);
+                const sunAzimuth = (sunPos.azimuth * (180 / Math.PI)) + 180;
+                const relativeAngle = (sunAzimuth - bearing + 360) % 360;
+
+                if (sunPos.altitude > -0.1) { 
+                    if (relativeAngle > 0 && relativeAngle < 180) sunOnRightDist += dist;
+                    else sunOnLeftDist += dist;
+                }
+                totalCalcDist += dist; polylinePoints.push([p1.lat, p1.lon]); currentTime += timePerSegment;
+            }
+            const ratioL = totalCalcDist ? sunOnLeftDist / totalCalcDist : 0;
+            const ratioR = totalCalcDist ? sunOnRightDist / totalCalcDist : 0;
+            displayResults({
+                distL: routeData.distance * ratioL, distR: routeData.distance * ratioR,
+                timeL: routeData.duration * ratioL, timeR: routeData.duration * ratioR,
+                totalDist: routeData.distance, totalTime: routeData.duration
+            }, polylinePoints);
+        }
+
+        function displayResults(data, points) {
+            const fmtD = m => m > 1000 ? (m/1000).toFixed(0) + " km" : m.toFixed(0) + " m";
+            const fmtT = s => { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60); return h>0 ? `${h}h ${m}m` : `${m}m`; };
+
+            shareData.dist = fmtD(data.totalDist); shareData.dur = fmtT(data.totalTime);
+            shareData.from = document.getElementById('fromInput').value; shareData.to = document.getElementById('toInput').value;
+
+            document.getElementById('statDistance').innerText = shareData.dist;
+            document.getElementById('statDuration').innerText = shareData.dur;
+            document.getElementById('leftTimeText').innerText = ((data.distL/data.totalDist)*100).toFixed(0) + "%";
+            document.getElementById('rightTimeText').innerText = ((data.distR/data.totalDist)*100).toFixed(0) + "%";
+
+            setTimeout(() => {
+                document.getElementById('leftBar').style.width = `${(data.distL/data.totalDist)*100}%`;
+                document.getElementById('rightBar').style.width = `${(data.distR/data.totalDist)*100}%`;
+            }, 100);
+
+            const verdictText = document.getElementById('visualVerdictText');
+            const sunLeft = document.getElementById('visSunLeft'); const sunRight = document.getElementById('visSunRight');
+            const seatsL = mode === 'bus' ? document.getElementById('seatsLeftBus') : document.getElementById('seatsLeftPlane');
+            const seatsR = mode === 'bus' ? document.getElementById('seatsRightBus') : document.getElementById('seatsRightPlane');
+            
+            sunLeft.classList.remove('sun-active'); sunRight.classList.remove('sun-active');
+            document.querySelectorAll('.heat-zone').forEach(el => el.setAttribute('fill', '#cbd5e1'));
+            
+            const widget = document.getElementById('weatherWidget');
+            widget.style.display = 'none';
+            widget.classList.remove('thunder'); 
+
+            if (data.timeL < 60 && data.timeR < 60) {
+                verdictText.innerHTML = `<span class="text-xl block">Sit Anywhere</span><span class="text-xs font-medium opacity-80">Sun is offline 🌙</span>`;
+                verdictText.className = "text-xl font-black text-indigo-500 dark:text-indigo-300 leading-none";
+                shareData.verdict = "SIT ANYWHERE (Night)";
+            } else if (mode === 'bus' && currentWeatherType !== 'clear') {
+                widget.style.display = 'block'; 
+                if (currentWeatherType === 'thunder') {
+                    widget.classList.add('thunder');
+                    verdictText.innerHTML = `<span class="text-xl block">Sit Anywhere</span><span class="text-xs font-medium opacity-80">Stay Safe ⛈️</span>`;
+                    shareData.verdict = "STAY SAFE (Storm)";
+                } else if (currentWeatherType === 'heavy_rain') {
+                    verdictText.innerHTML = `<span class="text-xl block">Sit Anywhere</span><span class="text-xs font-medium opacity-80">Heavy Rain 🌧️</span>`;
+                    shareData.verdict = "SIT ANYWHERE (Rain)";
+                } else {
+                    if (data.timeR > data.timeL) { verdictText.innerText = "SIT LEFT"; shareData.verdict = "SIT LEFT"; sunRight.classList.add('sun-active'); seatsR.setAttribute('fill', '#fca5a5'); seatsL.setAttribute('fill', '#93c5fd'); }
+                    else { verdictText.innerText = "SIT RIGHT"; shareData.verdict = "SIT RIGHT"; sunLeft.classList.add('sun-active'); seatsL.setAttribute('fill', '#fca5a5'); seatsR.setAttribute('fill', '#93c5fd'); }
+                    verdictText.className = "text-2xl font-black text-blue-600 dark:text-blue-400";
+                }
+                if (currentWeatherType !== 'rain') verdictText.className = "text-xl font-black text-slate-600 dark:text-slate-300 leading-none";
+            } else if (data.timeR > data.timeL) {
+                verdictText.innerText = "SIT LEFT"; verdictText.className = "text-2xl font-black text-blue-600 dark:text-blue-400";
+                sunRight.classList.add('sun-active'); seatsR.setAttribute('fill', '#fca5a5'); seatsL.setAttribute('fill', '#93c5fd'); 
+                shareData.verdict = "SIT LEFT";
+            } else if (data.timeL > data.timeR) {
+                verdictText.innerText = "SIT RIGHT"; verdictText.className = "text-2xl font-black text-blue-600 dark:text-blue-400";
+                sunLeft.classList.add('sun-active'); seatsL.setAttribute('fill', '#fca5a5'); seatsR.setAttribute('fill', '#93c5fd'); 
+                shareData.verdict = "SIT RIGHT";
+            } else {
+                verdictText.innerText = "ANY SIDE"; verdictText.className = "text-2xl font-black text-gray-400";
+                shareData.verdict = "SIT ANYWHERE";
+            }
+            drawMap(points);
+        }
+
+        function drawMap(points) {
+            map.invalidateSize();
+            if (currentRouteLayer) map.removeLayer(currentRouteLayer);
+            const line = L.polyline(points, { color: mode === 'bus' ? '#6366f1' : '#ec4899', weight: 4, dashArray: mode === 'flight' ? '10, 10' : null }).addTo(map);
+            map.fitBounds(line.getBounds(), { padding: [40, 40] }); currentRouteLayer = line;
+        }
+
+        function getBearing(lat1, lon1, lat2, lon2) {
+            const y = Math.sin(rad(lon2-lon1)) * Math.cos(rad(lat2));
+            const x = Math.cos(rad(lat1))*Math.sin(rad(lat2)) - Math.sin(rad(lat1))*Math.cos(rad(lat2))*Math.cos(rad(lon2-lon1));
+            return (deg(Math.atan2(y, x)) + 360) % 360;
+        }
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3, a = Math.sin(rad(lat2-lat1)/2)**2 + Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(rad(lon2-lon1)/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        function rad(d) { return d * Math.PI / 180; } function deg(r) { return r * 180 / Math.PI; }
+        function showLoader(b, t="Loading...") { document.getElementById('loader').classList.toggle('hidden', !b); document.getElementById('loaderText').innerText = t; document.getElementById('calcBtn').disabled = b; }
+        function showError(m) { const e = document.getElementById('errorMsg'); e.innerText = m; e.classList.remove('hidden'); }
+        function hideError() { document.getElementById('errorMsg').classList.add('hidden'); }
+
+    </script>
+</body>
+</html>
